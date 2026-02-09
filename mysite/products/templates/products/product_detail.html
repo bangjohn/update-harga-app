@@ -1,0 +1,166 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ product.name }} - Detail Harga</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .chart-container {
+            height: 400px;
+            max-height: 400px;
+            overflow: hidden;
+        }
+        .chart-container canvas {
+            max-height: 400px !important;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Update Harga</a>
+            <a class="btn btn-outline-light btn-sm" href="/">Kembali ke Daftar</a>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    {% if product.image_url %}
+                        <img src="{{ product.image_url }}" class="card-img-top" alt="{{ product.name }}" style="height: 200px; object-fit: cover;">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                            <i class="bi bi-image fs-1 text-muted"></i>
+                        </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h2 class="h4">{{ product.name }}</h2>
+                        <p class="text-muted">{{ product.category.name }}</p>
+                        <hr>
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <small class="text-muted">Harga Sekarang</small>
+                                <h1 class="fw-bold text-primary">Rp {{ product.current_price|floatformat:0|intcomma }}</h1>
+                            </div>
+                            <div class="col-auto">
+                                {% if product.current_price > product.previous_price %}
+                                    <div class="text-danger text-center">
+                                        <i class="bi bi-arrow-up-circle-fill fs-1"></i>
+                                        <small class="d-block">Naik</small>
+                                    </div>
+                                {% elif product.current_price < product.previous_price %}
+                                    <div class="text-success text-center">
+                                        <i class="bi bi-arrow-down-circle-fill fs-1"></i>
+                                        <small class="d-block">Turun</small>
+                                    </div>
+                                {% else %}
+                                    <div class="text-secondary text-center">
+                                        <i class="bi bi-dash-circle fs-1"></i>
+                                        <small class="d-block">Stabil</small>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if product.current_price != product.previous_price %}
+                            <small class="text-muted text-decoration-line-through d-block mt-2">
+                                Harga Sebelumnya: Rp {{ product.previous_price|floatformat:0|intcomma }}
+                            </small>
+                        {% endif %}
+                        <p class="text-muted mt-3">
+                            <small>Terakhir update: {{ product.updated_at|date:"d F Y H:i" }}</small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card p-4 chart-container">
+                    <h5 class="card-title mb-4">Riwayat Perubahan Harga</h5>
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/Chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script>
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const priceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ chart_dates|safe }},
+                datasets: [{
+                    label: 'Harga (Rp)',
+                    data: {{ chart_prices|safe }},
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    stepped: true,
+                    tension: 0,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    yAxisID: 'y',
+                    xAxisID: 'x'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            displayFormats: {
+                                day: 'dd MMM yyyy'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.05)'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Tanggal'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        beginAtZero: false,
+                        grid: {
+                            color: 'rgba(0,0,0,0.05)'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Harga (Rp)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Harga: Rp ' + context.raw.toLocaleString('id-ID');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

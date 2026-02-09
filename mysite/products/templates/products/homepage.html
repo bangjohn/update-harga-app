@@ -1,0 +1,327 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Harga</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .hover-shadow:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: box-shadow 0.3s ease;
+        }
+        .card-img-top {
+            object-fit: cover;
+        }
+        .category-btn {
+            border: 1px solid #dee2e6;
+            background: white;
+            transition: all 0.2s;
+        }
+        .category-btn:hover {
+            background: #f8f9fa;
+        }
+        .category-btn.active {
+            background: #0d6efd;
+            color: white;
+            border-color: #0d6efd;
+        }
+        .search-container {
+            background: #f8f9fa;
+            padding: 20px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Update Harga</a>
+        </div>
+    </nav>
+
+    <!-- Search Bar Container -->
+    <div class="search-container">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" id="searchInput" class="form-control" placeholder="Cari produk...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Filters Container -->
+    <div class="container mt-3">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2" id="categoryContainer">
+                    <button class="category-btn btn btn-sm px-3 py-2 active" data-category="">
+                        Semua Kategori
+                    </button>
+                    {% for category in categories %}
+                    <button class="category-btn btn btn-sm px-3 py-2" data-category="{{ category.id }}">
+                        {{ category.name }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Last Update Display -->
+    <div class="container mt-2">
+        <div class="row">
+            <div class="col text-center">
+                <small class="text-muted">
+                    <i class="bi bi-clock"></i> Data updated today: {{ last_update|date:"F d, Y" }}
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Container -->
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <h2 id="productCountTitle">Daftar Produk</h2>
+            </div>
+        </div>
+        
+        <div class="row" id="productsContainer">
+            {% for product in products %}
+            <div class="col-md-3 col-sm-6 mb-4 product-item" data-id="{{ product.id }}">
+                <a href="{% url 'product_detail' product.pk %}" class="text-decoration-none text-dark product-link">
+                    <div class="card h-100 shadow-sm hover-shadow">
+                        <div style="height: 200px; background: #f0f0f0; overflow: hidden;">
+                            {% if product.image_url %}
+                                <img src="{{ product.image_url }}" class="card-img-top h-100 w-100 object-fit-cover" alt="{{ product.name }}">
+                            {% else %}
+                                <span class="d-flex align-items-center justify-content-center h-100 text-muted">
+                                    <i class="bi bi-image fs-1"></i>
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="card-body">
+                            <h5 class="card-title">{{ product.name }}</h5>
+                            
+                            <div class="d-flex justify-content-between align-items-end">
+                                <div>
+                                    <small class="text-muted">Harga Sekarang</small>
+                                    <h4 class="fw-bold mb-0">Rp {{ product.current_price|floatformat:0|intcomma }}</h4>
+                                </div>
+                                
+                                {% if product.current_price > product.previous_price %}
+                                    <div class="text-danger text-center">
+                                        <i class="bi bi-arrow-up-circle-fill fs-4"></i>
+                                        <small class="d-block">Naik</small>
+                                    </div>
+                                {% elif product.current_price < product.previous_price %}
+                                    <div class="text-success text-center">
+                                        <i class="bi bi-arrow-down-circle-fill fs-4"></i>
+                                        <small class="d-block">Turun</small>
+                                    </div>
+                                {% else %}
+                                    <div class="text-secondary text-center">
+                                        <i class="bi bi-dash-circle fs-4"></i>
+                                        <small class="d-block">Stabil</small>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            {% if product.current_price != product.previous_price %}
+                                <small class="text-muted text-decoration-line-through mt-2 d-block">
+                                    Rp {{ product.previous_price|floatformat:0|intcomma }}
+                                </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Loading Spinner (hidden by default) -->
+        <div class="row" id="loadingSpinner" style="display: none;">
+            <div class="col-12 text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Debounce function to limit search input frequency
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Handle search input
+        const searchInput = document.getElementById('searchInput');
+        const categoryButtons = document.querySelectorAll('.category-btn');
+        const productsContainer = document.getElementById('productsContainer');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const productCountTitle = document.getElementById('productCountTitle');
+
+        // Initial products data (from server-side rendering)
+        let initialProducts = [];
+        document.querySelectorAll('.product-item').forEach(item => {
+            initialProducts.push(item.cloneNode(true));
+        });
+
+        // Filter products function
+        function filterProducts() {
+            const searchQuery = searchInput.value.toLowerCase().trim();
+            const activeCategoryBtn = document.querySelector('.category-btn.active');
+            const categoryId = activeCategoryBtn ? activeCategoryBtn.dataset.category : '';
+
+            // Show loading spinner
+            loadingSpinner.style.display = 'block';
+            productsContainer.style.opacity = '0.5';
+
+            // Build URL with query parameters
+            let url = '/filter/?';
+            if (searchQuery) {
+                url += `search=${encodeURIComponent(searchQuery)}`;
+            }
+            if (categoryId) {
+                if (searchQuery) url += '&';
+                url += `category=${categoryId}`;
+            }
+
+            // Fetch filtered products via AJAX
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    // Clear current products
+                    productsContainer.innerHTML = '';
+
+                    // Update title with count
+                    productCountTitle.textContent = `Daftar Produk (${data.products.length})`;
+
+                    // Render filtered products
+                    if (data.products.length === 0) {
+                        productsContainer.innerHTML = `
+                            <div class="col-12 text-center py-5">
+                                <i class="bi bi-inbox fs-1 text-muted"></i>
+                                <p class="text-muted mt-2">Tidak ada produk yang ditemukan</p>
+                            </div>
+                        `;
+                    } else {
+                        data.products.forEach(product => {
+                            const productDiv = document.createElement('div');
+                            productDiv.className = 'col-md-3 col-sm-6 mb-4';
+                            productDiv.innerHTML = `
+                                <a href="${product.url}" class="text-decoration-none text-dark">
+                                    <div class="card h-100 shadow-sm hover-shadow">
+                                        <div style="height: 200px; background: #f0f0f0; overflow: hidden;">
+                                            ${product.image_url 
+                                                ? `<img src="${product.image_url}" class="card-img-top h-100 w-100 object-fit-cover" alt="${product.name}">`
+                                                : `<span class="d-flex align-items-center justify-content-center h-100 text-muted">
+                                                    <i class="bi bi-image fs-1"></i>
+                                                   </span>`
+                                            }
+                                        </div>
+                                        <div class="card-body">
+                                            <h5 class="card-title">${product.name}</h5>
+                                            <div class="d-flex justify-content-between align-items-end">
+                                                <div>
+                                                    <small class="text-muted">Harga Sekarang</small>
+                                                    <h4 class="fw-bold mb-0">Rp ${parseInt(product.current_price).toLocaleString('id-ID')}</h4>
+                                                </div>
+                                                ${getPriceChangeBadge(product.current_price, product.previous_price)}
+                                            </div>
+                                            ${product.current_price != product.previous_price 
+                                                ? `<small class="text-muted text-decoration-line-through mt-2 d-block">
+                                                    Rp ${parseInt(product.previous_price).toLocaleString('id-ID')}
+                                                   </small>`
+                                                : ''
+                                            }
+                                        </div>
+                                    </div>
+                                </a>
+                            `;
+                            productsContainer.appendChild(productDiv);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Show error message
+                    productsContainer.innerHTML = `
+                        <div class="col-12 text-center py-5">
+                            <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+                            <p class="text-danger mt-2">Terjadi kesalahan saat memuat data</p>
+                        </div>
+                    `;
+                })
+                .finally(() => {
+                    // Hide loading spinner
+                    loadingSpinner.style.display = 'none';
+                    productsContainer.style.opacity = '1';
+                });
+        }
+
+        // Helper function to get price change badge HTML
+        function getPriceChangeBadge(current, previous) {
+            if (current > previous) {
+                return `
+                    <div class="text-danger text-center">
+                        <i class="bi bi-arrow-up-circle-fill fs-4"></i>
+                        <small class="d-block">Naik</small>
+                    </div>
+                `;
+            } else if (current < previous) {
+                return `
+                    <div class="text-success text-center">
+                        <i class="bi bi-arrow-down-circle-fill fs-4"></i>
+                        <small class="d-block">Turun</small>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="text-secondary text-center">
+                        <i class="bi bi-dash-circle fs-4"></i>
+                        <small class="d-block">Stabil</small>
+                    </div>
+                `;
+            }
+        }
+
+        // Search input handler with debounce
+        searchInput.addEventListener('input', debounce(() => {
+            filterProducts();
+        }, 300));
+
+        // Category button click handler
+        categoryButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all buttons
+                categoryButtons.forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                btn.classList.add('active');
+                // Filter products
+                filterProducts();
+            });
+        });
+    </script>
+</body>
+</html>
